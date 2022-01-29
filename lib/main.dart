@@ -1,9 +1,40 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:path_provider/path_provider.dart';
 
 void main() {
   runApp(const MyApp());
+}
+
+class CounterStorage {
+  Future<String> get _localPath async {
+    final directory = await getApplicationDocumentsDirectory();
+
+    return directory.path;
+  }
+
+  Future<File> get _localFile async {
+    final path = await _localPath;
+    return File('$path/counter.txt');
+  }
+
+  Future<int> readCounter() async {
+    try {
+      final file = await _localFile;
+      final contents = await file.readAsString();
+
+      return int.parse(contents);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  Future<File> writeCounter(int counter) async {
+    final file = await _localFile;
+    return file.writeAsString('$counter');
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -16,15 +47,16 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(title: 'Flutter Demo Home Page', storage: CounterStorage()),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key, required this.title}) : super(key: key);
+  const MyHomePage({Key? key, required this.title, required this.storage}) : super(key: key);
 
   final String title;
+  final CounterStorage storage;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -33,6 +65,17 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int _counter1 = 0;
   int _counter2 = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    getSharedCounter();
+    widget.storage.readCounter().then((int value) {
+      setState(() {
+        _counter2 = value;
+      });
+    });
+  }
 
   Future<void> _incrementCounter1() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -43,13 +86,21 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Future<void> _incrementCounter2() async {
+  Future<void> getSharedCounter() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    _counter2 = (prefs.getInt('counter2') ?? 0) + 1;
-    await prefs.setInt('counter2', _counter2);
     setState(() {
-      _counter2 = (prefs.getInt('counter2') ?? 0);
+      _counter1 = (prefs.getInt('counter1') ?? 0);
     });
+  }
+
+
+
+  Future<void> _incrementCounter2() {
+    setState(() {
+      _counter2++;
+    });
+
+    return widget.storage.writeCounter(_counter2);
   }
 
   @override
